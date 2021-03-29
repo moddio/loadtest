@@ -1,1 +1,3 @@
 # loadtest
+
+run npm install
