@@ -12,7 +12,8 @@ pm2 start npm --name=Taro -- run server  --game=5fd192eb7e39dc434d10e26c
 */
 var { WebSocket } = require('@clusterws/cws');;
 var IP = process.env.IP || 'localhost';
-
+const lz = require('lz-string');
+const tres = 10000;
 
 function getRandomString() {
     var text = "";
@@ -26,16 +27,53 @@ function getRandomString() {
 
 var cliArgs = process.argv.slice(2);
 
+const token = "aaa"
 var botCount = 0
-var maxBotCount = 5
+var maxBotCount = 1
 var wsPort = "2001"
+var botKing = { id: null }
 if (cliArgs[0] && cliArgs[0] != 'null') {
     wsPort = cliArgs[0];
 }
 if (cliArgs[1]) {
     maxBotCount = parseInt(cliArgs[1]);
 }
+var portDivider = ":"
+if (isNaN(wsPort)) {
+    portDivider = ""
+}
 console.log("Will connect ", maxBotCount, " to port ", wsPort)
+function connectBotKing() {
+    const client = new WebSocket(`ws://${IP}${portDivider}${wsPort}/?token=`, 'netio1')
+    client.on('open', connection => {
+        client.on('message', message => {
+            if (message.type === 'utf8') {
+                //uncomment to see data from server (reduce bot count to 1 first!)
+                console.log(decompressFromUTF16.decompress(message))
+            }
+            var m = JSON.parse(lz.decompressFromUTF16(message))
+            if (m[1] && m[1][0] && m[1][0][0] && m[1][0][0] == 'F') {
+                processMessage(m[1][0][1])
+            }
+
+        })
+    });
+}
+function processMessage(m) {
+    //grant --token=aaa
+    if (m.text.includes("grant --token=" + token)) {
+        botKing.id = m.from;
+        console.log("Control granted to ", m.from)
+    }
+    if (m.from == botKing.id && m.text.includes("bot ")) {
+        console.log("listen to commands")
+        let com = m.text
+        if (com.includes("add")) {
+            console.log("adding bot")
+            mockIgeConnection(botCount)()
+        }
+    }
+}
 function mockIgeConnection(i) {
 
     console.log(botCount, "<", maxBotCount)
@@ -43,10 +81,6 @@ function mockIgeConnection(i) {
     // closure exists to save i variable
     return function () {
         var name = 'bot_' + i
-        var portDivider = ":"
-        if (isNaN(wsPort)) {
-            portDivider = ""
-        }
         var client = new WebSocket(`ws://${IP}${portDivider}${wsPort}/?token=`, 'netio1')
 
         client.on('error', error => {
@@ -63,22 +97,11 @@ function mockIgeConnection(i) {
             client.send(JSON.stringify(["\n", [0, 0]]));
 
 
-            client.on('error', error => {
-                console.log("Connection Error: " + error.toString())
-            })
-
 
             client.on('close', () => {
                 console.log('echo-protocol Connection Closed')
             })
 
-
-            client.on('message', message => {
-                if (message.type === 'utf8') {
-                    // uncomment to see data from server (reduce bot count to 1 first!)
-                    //console.log(message.utf8Data)
-                }
-            })
 
             // after connecting, press "PLAY" button
             setTimeout(() => {
@@ -141,6 +164,7 @@ const biasKiller = function (min, max) {
     }
     return self
 }
+connectBotKing();
 // create a new player every 250ms
 setInterval(() => {
     while (botCount < maxBotCount) {
